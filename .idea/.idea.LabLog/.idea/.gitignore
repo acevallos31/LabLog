@@ -2,8 +2,13 @@
 /shelf/
 /workspace.xml
 # Rider ignored files
+<<<<<<< HEAD
 /projectSettingsUpdater.xml
 /.idea.LabLog.iml
+=======
+/.idea.LabLog.iml
+/projectSettingsUpdater.xml
+>>>>>>> 369047ebd21c0da9bd41071e7c8ec21d01030d88
 /modules.xml
 /contentModel.xml
 # Editor-based HTTP Client requests
