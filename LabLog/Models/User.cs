@@ -1,4 +1,4 @@
-﻿namespace LabLog.DTOs
+﻿namespace LabLog.Models
 {
     public class RegisterDto
     {

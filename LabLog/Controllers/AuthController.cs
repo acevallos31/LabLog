@@ -8,33 +8,51 @@ namespace LabLog.Controllers
     [Route("api/[controller]")]
     public class AuthController : ControllerBase
     {
-        private readonly IAuthService _authService;
+        private readonly AuthService _authService;
 
-        // Inyectamos el servicio que creamos en los pasos anteriores
-        public AuthController(IAuthService authService)
+        public AuthController(AuthService authService)
         {
             _authService = authService;
         }
 
-        // Endpoint requerido: POST /api/Auth/login (sin [Authorize])
-        [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] LoginRequestDto loginDto)
+        [HttpPost("register")]
+        public async Task<IActionResult> Register([FromBody] RegisterDto dto)
         {
-            if (string.IsNullOrEmpty(loginDto.Email) || string.IsNullOrEmpty(loginDto.Password))
+            try
             {
-                return BadRequest("El email y la contraseña son requeridos.");
+                var user = await _authService.Register(dto);
+
+                return Ok(new
+                {
+                    user.Id,
+                    user.FullName,
+                    user.Email,
+                    user.Role,
+                    user.CreatedAt
+                });
             }
-
-            // Toda la lógica de negocio va en el Service, cumpliendo la restricción
-            var result = await _authService.LoginAsync(loginDto);
-
-            if (result == null)
+            catch (Exception ex)
             {
-                return Unauthorized("Credenciales inválidas o error en la autenticación con Firebase.");
+                return BadRequest(ex.Message);
             }
+        }
 
-            // Retorna idToken, localId y email tal como lo pide el documento
-            return Ok(result); 
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] LoginDto dto)
+        {
+            try
+            {
+                var token = await _authService.Login(dto);
+
+                return Ok(new
+                {
+                    token = token
+                });
+            }
+            catch (Exception ex)
+            {
+                return Unauthorized(ex.Message);
+            }
         }
     }
 }
