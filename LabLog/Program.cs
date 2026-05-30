@@ -1,3 +1,4 @@
+using LabLog.Services;
 
 namespace LabLog
 {
@@ -7,15 +8,15 @@ namespace LabLog
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // Add services to the container.
-
             builder.Services.AddControllers();
-            // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+
             builder.Services.AddOpenApi();
+
+            // Registrar AuthService con HttpClient
+            builder.Services.AddHttpClient<AuthService>();
 
             var app = builder.Build();
 
-            // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
             {
                 app.MapOpenApi();
@@ -24,7 +25,6 @@ namespace LabLog
             app.UseHttpsRedirection();
 
             app.UseAuthorization();
-
 
             app.MapControllers();
 
