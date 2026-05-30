@@ -17,7 +17,7 @@ namespace LabLog
 
             builder.Services.AddSingleton<FirebaseService>();
             builder.Services.AddScoped<AuthService>();
-          //  builder.Services.AddScoped<LabNoteService>();
+            builder.Services.AddScoped<LabNoteService>();
 
             builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 .AddJwtBearer(options =>
