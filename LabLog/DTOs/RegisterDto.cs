@@ -4,7 +4,7 @@ namespace LabLog.DTOs
 {
     public class RegisterDto
     {
-Required(ErrorMessage = "El nombre de usuario es obligatorio.")]
+[Required(ErrorMessage = "El nombre de usuario es obligatorio.")]
 [StringLength(50, MinimumLength = 3, ErrorMessage = "El nombre de usuario debe tener entre 3 y 50 caracteres.")]
 public string Username { get; set; } = string.Empty;
 [Required(ErrorMessage = "El correo electrónico es obligatorio.")]

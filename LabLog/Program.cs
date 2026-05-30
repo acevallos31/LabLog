@@ -2,6 +2,7 @@ using System.Text;
 using LabLog.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Scalar.AspNetCore;
 
 namespace LabLog
 {
@@ -16,7 +17,7 @@ namespace LabLog
 
             builder.Services.AddSingleton<FirebaseService>();
             builder.Services.AddScoped<AuthService>();
-            builder.Services.AddScoped<LabNoteService>();
+          //  builder.Services.AddScoped<LabNoteService>();
 
             builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 .AddJwtBearer(options =>
@@ -42,6 +43,7 @@ namespace LabLog
             if (app.Environment.IsDevelopment())
             {
                 app.MapOpenApi();
+                app.MapScalarApiReference();
             }
 
             app.UseHttpsRedirection();

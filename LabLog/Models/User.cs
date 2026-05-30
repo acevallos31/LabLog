@@ -1,15 +1,17 @@
 ﻿namespace LabLog.Models
 {
-    public class RegisterDto
+    public class User
     {
+        public string Id { get; set; } = string.Empty;
+
+        public string FullName { get; set; } = string.Empty;
+
         public string Email { get; set; } = string.Empty;
-        public string Password { get; set; } = string.Empty;
-        public string DisplayName { get; set; } = string.Empty;
-    }
-    public class RegisterResponseDto
-    {
-        public string IdToken { get; set; } = string.Empty;
-        public string LocalId { get; set; } = string.Empty;
-        public string Email { get; set; } = string.Empty;
+
+        public string PasswordHash { get; set; } = string.Empty;
+
+        public string Role { get; set; } = "user";
+
+        public DateTime CreatedAt { get; set; }
     }
 }

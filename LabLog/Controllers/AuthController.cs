@@ -18,41 +18,19 @@ namespace LabLog.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterDto dto)
         {
-            try
-            {
-                var user = await _authService.Register(dto);
-
-                return Ok(new
-                {
-                    user.Id,
-                    user.FullName,
-                    user.Email,
-                    user.Role,
-                    user.CreatedAt
-                });
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
+            var user = await _authService.Register(dto);
+            return Ok(user);
         }
 
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto dto)
         {
-            try
-            {
-                var token = await _authService.Login(dto);
+            var token = await _authService.Login(dto);
 
-                return Ok(new
-                {
-                    token = token
-                });
-            }
-            catch (Exception ex)
+            return Ok(new
             {
-                return Unauthorized(ex.Message);
-            }
+                token = token
+            });
         }
     }
 }
