@@ -1,4 +1,7 @@
+using System.Text;
 using LabLog.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 
 namespace LabLog
 {
@@ -9,11 +12,30 @@ namespace LabLog
             var builder = WebApplication.CreateBuilder(args);
 
             builder.Services.AddControllers();
-
             builder.Services.AddOpenApi();
 
-            // Registrar AuthService con HttpClient
-            builder.Services.AddHttpClient<AuthService>();
+            builder.Services.AddSingleton<FirebaseService>();
+            builder.Services.AddScoped<AuthService>();
+            builder.Services.AddScoped<LabNoteService>();
+
+            builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(options =>
+                {
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuer = true,
+                        ValidateAudience = true,
+                        ValidateLifetime = true,
+                        ValidateIssuerSigningKey = true,
+
+                        ValidIssuer = builder.Configuration["Jwt:Issuer"],
+                        ValidAudience = builder.Configuration["Jwt:Issuer"],
+
+                        IssuerSigningKey = new SymmetricSecurityKey(
+                            Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)
+                        )
+                    };
+                });
 
             var app = builder.Build();
 
@@ -24,6 +46,7 @@ namespace LabLog
 
             app.UseHttpsRedirection();
 
+            app.UseAuthentication();
             app.UseAuthorization();
 
             app.MapControllers();

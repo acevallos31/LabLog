@@ -1,107 +1,147 @@
-﻿using LabLog.DTOs;
-using Newtonsoft.Json;
-using ProyectoClaseQ2.DTOs;
+﻿using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json.Serialization;
+using Google.Cloud.Firestore;
+using Microsoft.IdentityModel.Tokens;
+using LabLog.DTOs;
+using LabLog.Models;
 
-namespace ProyectoClaseQ2.Services;
+namespace LabLog.Services;
 
 public class AuthService
 {
-    // Maneja lo relacionado a registro e inicio de sesion
+    private readonly FirebaseService _firebaseService;
     private readonly IConfiguration _configuration;
-    private readonly HttpClient _httpClient;
 
-    public AuthService(IConfiguration configuration, HttpClient httpClient)
+    public AuthService(
+        FirebaseService firebaseService,
+        IConfiguration configuration)
     {
+        _firebaseService = firebaseService;
         _configuration = configuration;
-        _httpClient = httpClient;
     }
 
-    public async Task<AuthResponseDto> Register(RegisterDto dto)
+    public async Task<User> Register(RegisterDto dto)
     {
-        // Firebase Authentication crea el usuario
-        var apiKey = _configuration["Firebase:ApiKey"];
+        var collection = _firebaseService.GetCollection("users");
 
-        var url = $"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={apiKey}";
+        var existing = await collection
+            .WhereEqualTo("Email", dto.Email)
+            .GetSnapshotAsync();
 
-        var requestBody = new
+        if (existing.Count > 0)
+            throw new Exception("Ya existe un usuario con ese correo");
+
+        var user = new User
         {
-            email = dto.Email,
-            password = dto.Password,
-            displayName = dto.DisplayName,
-            returnSecureToken = true
+            Id = Guid.NewGuid().ToString(),
+            FullName = dto.DisplayName,
+            Email = dto.Email,
+            PasswordHash = HashPassword(dto.Password),
+            Role = "user",
+            CreatedAt = DateTime.UtcNow
         };
 
-        var json = JsonConvert.SerializeObject(requestBody);
+        await collection.Document(user.Id).SetAsync(
+            new Dictionary<string, object>
+            {
+                { "Id", user.Id },
+                { "FullName", user.FullName },
+                { "Email", user.Email },
+                { "PasswordHash", user.PasswordHash },
+                { "Role", user.Role },
+                { "CreatedAt", user.CreatedAt }
+            });
 
-        var response = await _httpClient.PostAsync(
-            url,
-            new StringContent(json, Encoding.UTF8, "application/json")
-        );
-
-        var responseContent = await response.Content.ReadAsStringAsync();
-
-        if (!response.IsSuccessStatusCode)
-            throw new Exception(responseContent);
-
-        var firebaseResponse =
-            JsonConvert.DeserializeObject<FirebaseAuthResponse>(responseContent);
-
-        return new AuthResponseDto
-        {
-            IdToken = firebaseResponse!.IdToken,
-            LocalId = firebaseResponse.LocalId,
-            Email = firebaseResponse.Email
-        };
+        return user;
     }
 
-    public async Task<AuthResponseDto> Login(LoginDto dto)
+    public async Task<string> Login(LoginDto dto)
     {
-        // Firebase Authentication valida el correo y password
-        var apiKey = _configuration["Firebase:ApiKey"];
+        var collection = _firebaseService.GetCollection("users");
 
-        var url = $"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={apiKey}";
+        var snapshot = await collection
+            .WhereEqualTo("Email", dto.Email)
+            .GetSnapshotAsync();
 
-        var requestBody = new
+        if (snapshot.Count == 0)
+            throw new Exception("No existe ningún usuario con ese correo");
+
+        var doc = snapshot.Documents[0];
+
+        var data = doc.ToDictionary();
+
+        var user = new User
         {
-            email = dto.Email,
-            password = dto.Password,
-            returnSecureToken = true
+            Id = data["Id"].ToString()!,
+            FullName = data["FullName"].ToString()!,
+            Email = data["Email"].ToString()!,
+            PasswordHash = data["PasswordHash"].ToString()!,
+            Role = data["Role"].ToString()!,
+            CreatedAt =
+                ((Timestamp)data["CreatedAt"]).ToDateTime()
         };
 
-        var json = JsonConvert.SerializeObject(requestBody);
+        if (!VerifyPassword(dto.Password, user.PasswordHash))
+            throw new Exception("Password incorrecto");
 
-        var response = await _httpClient.PostAsync(
-            url,
-            new StringContent(json, Encoding.UTF8, "application/json")
-        );
-
-        var responseContent = await response.Content.ReadAsStringAsync();
-
-        if (!response.IsSuccessStatusCode)
-            throw new Exception(responseContent);
-
-        var firebaseResponse =
-            JsonConvert.DeserializeObject<FirebaseAuthResponse>(responseContent);
-
-        return new AuthResponseDto
-        {
-            IdToken = firebaseResponse!.IdToken,
-            LocalId = firebaseResponse.LocalId,
-            Email = firebaseResponse.Email
-        };
+        return GenerateToken(user);
     }
 
-    private class FirebaseAuthResponse
+    private string GenerateToken(User user)
     {
-        [JsonProperty("idToken")]
-        public string IdToken { get; set; } = string.Empty;
+        var claims = new[]
+        {
+            new Claim(
+                ClaimTypes.NameIdentifier,
+                user.Id),
 
-        [JsonProperty("localId")]
-        public string LocalId { get; set; } = string.Empty;
+            new Claim(
+                ClaimTypes.Email,
+                user.Email),
 
-        [JsonProperty("email")]
-        public string Email { get; set; } = string.Empty;
+            new Claim(
+                ClaimTypes.Role,
+                user.Role)
+        };
+
+        var key =
+            new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(
+                    _configuration["Jwt:Key"]!));
+
+        var creds =
+            new SigningCredentials(
+                key,
+                SecurityAlgorithms.HmacSha256);
+
+        var token =
+            new JwtSecurityToken(
+                issuer: _configuration["Jwt:Issuer"],
+                audience: _configuration["Jwt:Issuer"],
+                claims: claims,
+                expires: DateTime.UtcNow.AddHours(8),
+                signingCredentials: creds
+            );
+
+        return new JwtSecurityTokenHandler()
+            .WriteToken(token);
+    }
+
+    private bool VerifyPassword(
+        string password,
+        string passwordHash)
+    {
+        return HashPassword(password) == passwordHash;
+    }
+
+    private string HashPassword(string password)
+    {
+        var bytes =
+            SHA256.HashData(
+                Encoding.UTF8.GetBytes(password));
+
+        return Convert.ToBase64String(bytes);
     }
 }
